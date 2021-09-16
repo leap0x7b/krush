@@ -2,22 +2,31 @@ use std::process::Command;
 use std::process::exit;
 use std::path::Path;
 use std::env;
+use unescape::unescape;
+use shell_words;
 use rustyline::error::ReadlineError;
 use rustyline::Editor;
+
+fn prompt(prompt: &str) -> String {
+    let cwd = &format!("{}", env::current_dir().unwrap().display()).as_str().replace(env::var("HOME").unwrap().as_str(), "~");
+    return prompt
+        .replace("{cwd}", cwd)
+}
 
 fn main() {
     // `()` can be used when no completer is required
     let mut rl = Editor::<()>::new();
-    rl.load_history(".krush_history").ok();
+    let mut prompt_ = String::from("\x1b[0;33m{cwd}\x1b[0m $ ");
+    rl.load_history(&format!("{}/.krush_history", env::var("HOME").unwrap().as_str())).ok();
     loop {
-        let prompt = &format!("{} $ ", env::current_dir().unwrap().display()).as_str().replace(env::var("HOME").unwrap().as_str(), "~");
-        let readline = rl.readline(prompt);
+        let readline = rl.readline(&prompt(&prompt_));
         match readline {
             Ok(line) => {
                 rl.add_history_entry(line.as_str());
                 let cmd = line.split_whitespace().next().unwrap();
                 let cmd_ = cmd.clone();
-                let args: Vec<_> = line[cmd.len()..line.len()].split_whitespace().collect();
+                let args: Vec<_> = shell_words::split(&line[cmd.len()..line.len()]).unwrap();
+                let args: Vec<_> = args.iter().map(|s| s as &str).collect();
                 let args_ = args.clone();
                 if let Ok(mut child) = Command::new(cmd).args(args).spawn() {
                     child.wait().unwrap();
@@ -49,6 +58,7 @@ fn main() {
                                 }
                             }
                         },
+                        "prompt" => prompt_ = String::from(unescape(&args_.join(" ")).unwrap()),
                         _ => eprintln!("{}: command not found", cmd_),
                     }
                 }
@@ -61,6 +71,6 @@ fn main() {
             }
         }
     }
-    rl.save_history(".krush_history").unwrap();
+    rl.save_history(&format!("{}/.krush_history", env::var("HOME").unwrap().as_str())).unwrap();
 }
 

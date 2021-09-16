@@ -1,1 +1,5 @@
 /target
+# ctags/vim-gutentags leftovers
+tags
+tags.lock
+tags.temp
